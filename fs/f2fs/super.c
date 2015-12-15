@@ -2312,21 +2312,81 @@ static loff_t max_file_blocks(void)
 	return result;
 }
 
-static int __f2fs_commit_super(struct buffer_head *bh,
-			struct f2fs_super_block *super)
+static inline bool sanity_check_area_boundary(struct super_block *sb,
+					struct f2fs_super_block *raw_super)
 {
-	lock_buffer(bh);
-	if (super)
-		memcpy(bh->b_data + F2FS_SUPER_OFFSET, super, sizeof(*super));
-	set_buffer_dirty(bh);
-	unlock_buffer(bh);
+	u32 segment0_blkaddr = le32_to_cpu(raw_super->segment0_blkaddr);
+	u32 cp_blkaddr = le32_to_cpu(raw_super->cp_blkaddr);
+	u32 sit_blkaddr = le32_to_cpu(raw_super->sit_blkaddr);
+	u32 nat_blkaddr = le32_to_cpu(raw_super->nat_blkaddr);
+	u32 ssa_blkaddr = le32_to_cpu(raw_super->ssa_blkaddr);
+	u32 main_blkaddr = le32_to_cpu(raw_super->main_blkaddr);
+	u32 segment_count_ckpt = le32_to_cpu(raw_super->segment_count_ckpt);
+	u32 segment_count_sit = le32_to_cpu(raw_super->segment_count_sit);
+	u32 segment_count_nat = le32_to_cpu(raw_super->segment_count_nat);
+	u32 segment_count_ssa = le32_to_cpu(raw_super->segment_count_ssa);
+	u32 segment_count_main = le32_to_cpu(raw_super->segment_count_main);
+	u32 segment_count = le32_to_cpu(raw_super->segment_count);
+	u32 log_blocks_per_seg = le32_to_cpu(raw_super->log_blocks_per_seg);
 
-	/* it's rare case, we can do fua all the time */
-	return __sync_dirty_buffer(bh, WRITE_FLUSH_FUA);
+	if (segment0_blkaddr != cp_blkaddr) {
+		f2fs_msg(sb, KERN_INFO,
+			"Mismatch start address, segment0(%u) cp_blkaddr(%u)",
+			segment0_blkaddr, cp_blkaddr);
+		return true;
+	}
+
+	if (cp_blkaddr + (segment_count_ckpt << log_blocks_per_seg) !=
+							sit_blkaddr) {
+		f2fs_msg(sb, KERN_INFO,
+			"Wrong CP boundary, start(%u) end(%u) blocks(%u)",
+			cp_blkaddr, sit_blkaddr,
+			segment_count_ckpt << log_blocks_per_seg);
+		return true;
+	}
+
+	if (sit_blkaddr + (segment_count_sit << log_blocks_per_seg) !=
+							nat_blkaddr) {
+		f2fs_msg(sb, KERN_INFO,
+			"Wrong SIT boundary, start(%u) end(%u) blocks(%u)",
+			sit_blkaddr, nat_blkaddr,
+			segment_count_sit << log_blocks_per_seg);
+		return true;
+	}
+
+	if (nat_blkaddr + (segment_count_nat << log_blocks_per_seg) !=
+							ssa_blkaddr) {
+		f2fs_msg(sb, KERN_INFO,
+			"Wrong NAT boundary, start(%u) end(%u) blocks(%u)",
+			nat_blkaddr, ssa_blkaddr,
+			segment_count_nat << log_blocks_per_seg);
+		return true;
+	}
+
+	if (ssa_blkaddr + (segment_count_ssa << log_blocks_per_seg) !=
+							main_blkaddr) {
+		f2fs_msg(sb, KERN_INFO,
+			"Wrong SSA boundary, start(%u) end(%u) blocks(%u)",
+			ssa_blkaddr, main_blkaddr,
+			segment_count_ssa << log_blocks_per_seg);
+		return true;
+	}
+
+	if (main_blkaddr + (segment_count_main << log_blocks_per_seg) !=
+		segment0_blkaddr + (segment_count << log_blocks_per_seg)) {
+		f2fs_msg(sb, KERN_INFO,
+			"Wrong MAIN_AREA boundary, start(%u) end(%u) blocks(%u)",
+			main_blkaddr,
+			segment0_blkaddr + (segment_count << log_blocks_per_seg),
+			segment_count_main << log_blocks_per_seg);
+		return true;
+	}
+
+	return false;
 }
 
-static inline bool sanity_check_area_boundary(struct f2fs_sb_info *sbi,
-					struct buffer_head *bh)
+static int sanity_check_raw_super(struct super_block *sb,
+			struct f2fs_super_block *raw_super)
 {
 	struct f2fs_super_block *raw_super = (struct f2fs_super_block *)
 					(bh->b_data + F2FS_SUPER_OFFSET);
@@ -2483,6 +2543,14 @@ static int sanity_check_raw_super(struct f2fs_sb_info *sbi,
 		return 1;
 	}
 
+	/* check log blocks per segment */
+	if (le32_to_cpu(raw_super->log_blocks_per_seg) != 9) {
+		f2fs_msg(sb, KERN_INFO,
+			"Invalid log blocks per segment (%u)\n",
+			le32_to_cpu(raw_super->log_blocks_per_seg));
+		return 1;
+	}
+
 	/* Currently, support 512/1024/2048/4096 bytes sector size */
 	if (le32_to_cpu(raw_super->log_sectorsize) >
 				F2FS_MAX_LOG_SECTOR_SIZE ||
@@ -2563,16 +2631,17 @@ static int sanity_check_raw_super(struct f2fs_sb_info *sbi,
 	if (le32_to_cpu(raw_super->node_ino) != 1 ||
 		le32_to_cpu(raw_super->meta_ino) != 2 ||
 		le32_to_cpu(raw_super->root_ino) != 3) {
-		f2fs_info(sbi, "Invalid Fs Meta Ino: node(%u) meta(%u) root(%u)",
-			  le32_to_cpu(raw_super->node_ino),
-			  le32_to_cpu(raw_super->meta_ino),
-			  le32_to_cpu(raw_super->root_ino));
-		return -EFSCORRUPTED;
+		f2fs_msg(sb, KERN_INFO,
+			"Invalid Fs Meta Ino: node(%u) meta(%u) root(%u)",
+			le32_to_cpu(raw_super->node_ino),
+			le32_to_cpu(raw_super->meta_ino),
+			le32_to_cpu(raw_super->root_ino));
+		return 1;
 	}
 
 	/* check CP/SIT/NAT/SSA/MAIN_AREA area boundary */
-	if (sanity_check_area_boundary(sbi, bh))
-		return -EFSCORRUPTED;
+	if (sanity_check_area_boundary(sb, raw_super))
+		return 1;
 
 	return 0;
 }
