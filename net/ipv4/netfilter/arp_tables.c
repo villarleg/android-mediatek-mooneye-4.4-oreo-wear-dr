@@ -365,18 +365,7 @@ static inline bool unconditional(const struct arpt_entry *e)
 
 	return e->target_offset == sizeof(struct arpt_entry) &&
 	       memcmp(&e->arp, &uncond, sizeof(uncond)) == 0;
-}
 
-static bool find_jump_target(const struct xt_table_info *t,
-			     const struct arpt_entry *target)
-{
-	struct arpt_entry *iter;
-
-	xt_entry_foreach(iter, t->entries, t->size) {
-		 if (iter == target)
-			return true;
-	}
-	return false;
 }
 
 /* Figures out from what hook each rule can be called: returns 0 if
