@@ -29,6 +29,7 @@
 #include <asm/esr.h>
 #include <asm/memory.h>
 #include <asm/irq.h>
+#include <asm/memory.h>
 #include <asm/thread_info.h>
 #include <asm/unistd.h>
 
@@ -104,6 +105,7 @@
 	str	x20, [sp, #S_ORIG_ADDR_LIMIT]
 	mov	x20, #TASK_SIZE_64
 	str	x20, [tsk, #TI_ADDR_LIMIT]
+	ALTERNATIVE(nop, SET_PSTATE_UAO(0), ARM64_HAS_UAO, CONFIG_ARM64_UAO)
 	.endif /* \el == 0 */
 	mrs	x22, elr_el1
 	mrs	x23, spsr_el1
@@ -139,6 +141,8 @@
 	/* Restore the task's original addr_limit. */
 	ldr	x20, [sp, #S_ORIG_ADDR_LIMIT]
 	str	x20, [tsk, #TI_ADDR_LIMIT]
+
+	/* No need to restore UAO, it will be restored from SPSR_EL1 */
 	.endif
 
 	ldp	x21, x22, [sp, #S_PC]		// load ELR, SPSR
@@ -419,7 +423,6 @@ el1_irq:
 	bl	trace_hardirqs_off
 #endif
 
-	get_thread_info tsk
 	irq_handler
 
 #ifdef CONFIG_PREEMPT
