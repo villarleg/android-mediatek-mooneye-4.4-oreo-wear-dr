@@ -2145,11 +2145,17 @@ static int f2fs_ioc_set_encryption_policy(struct file *filp, unsigned long arg)
 	if (!f2fs_sb_has_encrypt(F2FS_I_SB(inode)))
 		return -EOPNOTSUPP;
 
+	err = mnt_want_write_file(filp);
+	if (err)
+		return err;
+
 	mutex_lock(&inode->i_mutex);
 
 	err = f2fs_process_policy(&policy, inode);
 
 	mutex_unlock(&inode->i_mutex);
+
+	mnt_drop_write_file(filp);
 
 	return err;
 #else
