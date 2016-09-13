@@ -49,6 +49,24 @@
 } while (0)
 
 /*
+ * Raw TLBI operations.
+ *
+ * Where necessary, use the __tlbi() macro to avoid asm()
+ * boilerplate. Drivers and most kernel code should use the TLB
+ * management routines in preference to the macro below.
+ *
+ * The macro can be used as __tlbi(op) or __tlbi(op, arg), depending
+ * on whether a particular TLBI operation takes an argument or
+ * not. The macros handles invoking the asm with or without the
+ * register argument as appropriate.
+ */
+#define __TLBI_0(op, arg)		asm ("tlbi " #op)
+#define __TLBI_1(op, arg)		asm ("tlbi " #op ", %0" : : "r" (arg))
+#define __TLBI_N(op, arg, n, ...)	__TLBI_##n(op, arg)
+
+#define __tlbi(op, ...)		__TLBI_N(op, ##__VA_ARGS__, 1, 0)
+
+/*
  *	TLB Management
  *	==============
  *
@@ -109,7 +127,6 @@ static inline void flush_tlb_mm(struct mm_struct *mm)
 
 	dsb(ishst);
 	__tlbi(aside1is, asid);
-	__tlbi_user(aside1is, asid);
 	dsb(ish);
 }
 
@@ -120,7 +137,6 @@ static inline void flush_tlb_page(struct vm_area_struct *vma,
 
 	dsb(ishst);
 	__tlbi(vale1is, addr);
-	__tlbi_user(vale1is, addr);
 	dsb(ish);
 }
 
@@ -147,13 +163,10 @@ static inline void __flush_tlb_range(struct vm_area_struct *vma,
 
 	dsb(ishst);
 	for (addr = start; addr < end; addr += 1 << (PAGE_SHIFT - 12)) {
-		if (last_level) {
+		if (last_level)
 			__tlbi(vale1is, addr);
-			__tlbi_user(vale1is, addr);
-		} else {
+		else
 			__tlbi(vae1is, addr);
-			__tlbi_user(vae1is, addr);
-		}
 	}
 	dsb(ish);
 }
@@ -193,7 +206,7 @@ static inline void __flush_tlb_pgtable(struct mm_struct *mm,
 	unsigned long addr = uaddr >> 12 | (ASID(mm) << 48);
 
 	__tlbi(vae1is, addr);
-	__tlbi_user(vae1is, addr);
+
 	dsb(ish);
 }
 
