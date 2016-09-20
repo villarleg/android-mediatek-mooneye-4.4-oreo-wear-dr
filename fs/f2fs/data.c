@@ -24,6 +24,7 @@
 #include "segment.h"
 #include "trace.h"
 #include <trace/events/f2fs.h>
+#include <trace/events/android_fs.h>
 
 #define NUM_PREALLOC_POST_READ_CTXS	128
 
@@ -2534,6 +2535,8 @@ static int f2fs_write_begin(struct file *file, struct address_space *mapping,
 	block_t blkaddr = NULL_ADDR;
 	int err = 0;
 
+	trace_android_fs_datawrite_start(inode, pos, len,
+					 current->pid, current->comm);
 	trace_f2fs_write_begin(inode, pos, len, flags);
 
 	err = f2fs_is_checkpoint_ready(sbi);
@@ -2639,6 +2642,7 @@ static int f2fs_write_end(struct file *file,
 {
 	struct inode *inode = page->mapping->host;
 
+	trace_android_fs_datawrite_end(inode, pos, len);
 	trace_f2fs_write_end(inode, pos, len, copied);
 
 	/*
@@ -2754,19 +2758,20 @@ static ssize_t f2fs_direct_IO(struct kiocb *iocb, struct iov_iter *iter,
 
 	trace_f2fs_direct_IO_enter(inode, offset, count, rw);
 
-	if (rw == WRITE && whint_mode == WHINT_MODE_OFF)
-		iocb->ki_hint = WRITE_LIFE_NOT_SET;
+	if (trace_android_fs_dataread_start_enabled() &&
+	    (iov_iter_rw(iter) == READ))
+		trace_android_fs_dataread_start(inode, offset,
+						count, current->pid,
+						current->comm);
+	if (trace_android_fs_datawrite_start_enabled() &&
+	    (iov_iter_rw(iter) == WRITE))
+		trace_android_fs_datawrite_start(inode, offset, count,
+						 current->pid, current->comm);
 
-	if (iocb->ki_flags & IOCB_NOWAIT) {
-		if (!down_read_trylock(&fi->i_gc_rwsem[rw])) {
-			iocb->ki_hint = hint;
-			err = -EAGAIN;
-			goto out;
-		}
-		if (do_opu && !down_read_trylock(&fi->i_gc_rwsem[READ])) {
-			up_read(&fi->i_gc_rwsem[rw]);
-			iocb->ki_hint = hint;
-			err = -EAGAIN;
+	if (iov_iter_rw(iter) == WRITE) {
+		__allocate_data_blocks(inode, offset, count);
+		if (unlikely(f2fs_cp_error(F2FS_I_SB(inode)))) {
+			err = -EIO;
 			goto out;
 		}
 	} else {
@@ -2799,8 +2804,14 @@ static ssize_t f2fs_direct_IO(struct kiocb *iocb, struct iov_iter *iter,
 		}
 	}
 
-out:
-	trace_f2fs_direct_IO_exit(inode, offset, count, rw, err);
+	if (trace_android_fs_dataread_start_enabled() &&
+	    (iov_iter_rw(iter) == READ))
+		trace_android_fs_dataread_end(inode, offset, count);
+	if (trace_android_fs_datawrite_start_enabled() &&
+	    (iov_iter_rw(iter) == WRITE))
+		trace_android_fs_datawrite_end(inode, offset, count);
+
+	trace_f2fs_direct_IO_exit(inode, offset, count, iov_iter_rw(iter), err);
 
 	return err;
 }
