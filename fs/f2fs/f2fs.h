@@ -3772,15 +3772,7 @@ int f2fs_fname_usr_to_disk(struct inode *, const struct qstr *,
 	return align & blocksize_mask;
 }
 
-static inline int allow_outplace_dio(struct inode *inode,
-				struct kiocb *iocb, struct iov_iter *iter)
-{
-	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	int rw = iov_iter_rw(iter);
-
-	return (test_opt(sbi, LFS) && (rw == WRITE) &&
-				!block_unaligned_IO(inode, iocb, iter));
-}
+int f2fs_get_encryption_info(struct inode *inode);
 
 int f2fs_get_encryption_info(struct inode *inode);
 
