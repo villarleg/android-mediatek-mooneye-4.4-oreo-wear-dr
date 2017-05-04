@@ -167,11 +167,13 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
 	return page ? page_address(page) : NULL;
 }
 
-static inline void free_thread_stack(unsigned long *stack)
+extern void kaiser_remove_mapping(unsigned long start_addr, unsigned long size);
+static inline void free_thread_info(struct thread_info *ti)
 {
-	struct page *page = virt_to_page(stack);
-
-	__free_kmem_pages(page, THREAD_SIZE_ORDER);
+#ifdef CONFIG_KAISER
+	kaiser_remove_mapping((unsigned long)ti, THREAD_SIZE);
+#endif
+	free_kmem_pages((unsigned long)ti, THREAD_SIZE_ORDER);
 }
 # else
 static struct kmem_cache *thread_stack_cache;
@@ -333,6 +335,7 @@ void set_task_stack_end_magic(struct task_struct *tsk)
 	*stackend = STACK_END_MAGIC;	/* for overflow detection */
 }
 
+extern void kaiser_add_mapping(unsigned long addr, unsigned long size, unsigned long flags);
 static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 {
 	struct task_struct *tsk;
@@ -353,7 +356,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	if (err)
 		goto free_stack;
 
-	tsk->stack = stack;
+	tsk->stack = ti;
+#ifdef CONFIG_KAISER
+	kaiser_add_mapping((unsigned long)tsk->stack, THREAD_SIZE, __PAGE_KERNEL);
+#endif
 #ifdef CONFIG_SECCOMP
 	/*
 	 * We must handle setting up seccomp filters once we're under
