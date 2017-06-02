@@ -3635,8 +3635,10 @@ out:
 
 static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
 {
-	struct f2fs_journal *sit_j = CURSEG_I(sbi, CURSEG_COLD_DATA)->journal;
-	struct f2fs_journal *nat_j = CURSEG_I(sbi, CURSEG_HOT_DATA)->journal;
+	struct f2fs_summary_block *s_sits =
+		CURSEG_I(sbi, CURSEG_COLD_DATA)->sum_blk;
+	struct f2fs_summary_block *s_nats =
+		CURSEG_I(sbi, CURSEG_HOT_DATA)->sum_blk;
 	int type = CURSEG_HOT_DATA;
 	int err;
 
@@ -3665,12 +3667,9 @@ static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
 	}
 
 	/* sanity check for summary blocks */
-	if (nats_in_cursum(nat_j) > NAT_JOURNAL_ENTRIES ||
-			sits_in_cursum(sit_j) > SIT_JOURNAL_ENTRIES) {
-		f2fs_err(sbi, "invalid journal entries nats %u sits %u\n",
-			 nats_in_cursum(nat_j), sits_in_cursum(sit_j));
+	if (nats_in_cursum(s_nats) > NAT_JOURNAL_ENTRIES ||
+			sits_in_cursum(s_sits) > SIT_JOURNAL_ENTRIES)
 		return -EINVAL;
-	}
 
 	return 0;
 }
