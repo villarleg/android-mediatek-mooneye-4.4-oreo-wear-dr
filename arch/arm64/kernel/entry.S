@@ -936,16 +936,6 @@ __ni_sys_trace:
 	sub	\tmp, \tmp, #(SWAPPER_DIR_SIZE + RESERVED_TTBR0_SIZE)
 	bic	\tmp, \tmp, #USER_ASID_FLAG
 	msr	ttbr1_el1, \tmp
-#ifdef CONFIG_ARCH_MSM8996
-	/* ASID already in \tmp[63:48] */
-	movk	\tmp, #:abs_g2_nc:(TRAMP_VALIAS >> 12)
-	movk	\tmp, #:abs_g1_nc:(TRAMP_VALIAS >> 12)
-	/* 2MB boundary containing the vectors, so we nobble the walk cache */
-	movk	\tmp, #:abs_g0_nc:((TRAMP_VALIAS & ~(SZ_2M - 1)) >> 12)
-	isb
-	tlbi	vae1, \tmp
-	dsb	nsh
-#endif /* CONFIG_ARCH_MSM8996 */
 	.endm
 
 	.macro tramp_unmap_kernel, tmp
@@ -973,24 +963,13 @@ __ni_sys_trace:
 	.if	\regsize == 64
 	msr	tpidrro_el0, x30	// Restored in kernel_ventry
 	.endif
-	bl	2f
-	b	.
-2:
 	tramp_map_kernel	x30
-#ifdef CONFIG_RANDOMIZE_BASE
-	adr	x30, tramp_vectors + PAGE_SIZE
-#ifndef CONFIG_ARCH_MSM8996
-	isb
-#endif
-	ldr	x30, [x30]
-#else
 	ldr	x30, =vectors
-#endif
 	prfm	plil1strm, [x30, #(1b - tramp_vectors)]
 	msr	vbar_el1, x30
 	add	x30, x30, #(1b - tramp_vectors)
 	isb
-	ret
+	br	x30
 	.endm
 
 	.macro tramp_exit, regsize = 64
@@ -1028,14 +1007,6 @@ END(tramp_exit_compat)
 
 	.ltorg
 	.popsection				// .entry.tramp.text
-#ifdef CONFIG_RANDOMIZE_BASE
-	.pushsection ".rodata", "a"
-	.align PAGE_SHIFT
-	.globl	__entry_tramp_data_start
-__entry_tramp_data_start:
-	.quad	vectors
-	.popsection				// .rodata
-#endif /* CONFIG_RANDOMIZE_BASE */
 #endif /* CONFIG_UNMAP_KERNEL_AT_EL0 */
 
 /*
