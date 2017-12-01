@@ -150,7 +150,7 @@ static inline void __uaccess_ttbr0_disable(void)
 	write_sysreg(ttbr + SWAPPER_DIR_SIZE, ttbr0_el1);
 	isb();
 	/* Set reserved ASID */
-	ttbr &= ~(0xffffUL << 48);
+	ttbr &= ~TTBR_ASID_MASK;
 	write_sysreg(ttbr, ttbr1_el1);
 	isb();
 }
@@ -169,7 +169,7 @@ static inline void __uaccess_ttbr0_enable(void)
 
 	/* Restore active ASID */
 	ttbr1 = read_sysreg(ttbr1_el1);
-	ttbr1 |= ttbr0 & (0xffffUL << 48);
+	ttbr1 |= ttbr0 & TTBR_ASID_MASK;
 	write_sysreg(ttbr1, ttbr1_el1);
 	isb();
 
@@ -457,7 +457,7 @@ extern __must_check long strnlen_user(const char __user *str, long n);
 	msr	ttbr0_el1, \tmp1		// set reserved TTBR0_EL1
 	isb
 	sub	\tmp1, \tmp1, #SWAPPER_DIR_SIZE
-	bic	\tmp1, \tmp1, #(0xffff << 48)
+	bic	\tmp1, \tmp1, #TTBR_ASID_MASK
 	msr	ttbr1_el1, \tmp1		// set reserved ASID
 	isb
 	.endm
