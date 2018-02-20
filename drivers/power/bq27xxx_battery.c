@@ -317,7 +317,7 @@ static u8 bq27421_regs[] = {
 	0x30,	/* SOCU		*/
 };
 
-static u8 *bq27xxx_regs[] = {
+static u8 *bq27xxx_regs[] __maybe_unused = {
 	[BQ27000] = bq27000_regs,
 	[BQ27010] = bq27010_regs,
 	[BQ27500] = bq27500_regs,
@@ -1607,43 +1607,7 @@ static void bq27xxx_external_power_changed(struct power_supply *psy)
 	schedule_delayed_work(&di->work, 0);
 }
 
-static int bq27xxx_soft_reset(struct bq27xxx_device_info *di)
-{
-	int i = 0;
-	u16 flags;
-
-	dev_warn(di->dev, "%s: Enter. \n", __func__);
-
-	dev_warn(di->dev, "%s: Enter cfg update mode\n", __func__);
-	enter_cfg_update_mode(di);
-
-	dev_warn(di->dev, "%s: cmd - %04x\n", __func__, BQ274XX_SOFT_RESET);
-	control_cmd_wr(di, BQ274XX_SOFT_RESET);
-
-	while (i < CFG_UPDATE_POLLING_RETRY_LIMIT) {
-		i++;
-		flags = bq27xxx_read(di, BQ27XXX_REG_FLAGS, false);
-		if (!(flags & (1 << 4)))
-			break;
-		msleep(100);
-	}
-
-	if (i == CFG_UPDATE_POLLING_RETRY_LIMIT) {
-		dev_err(di->dev, "%s: Exit. soft reset failed %04x!\n", __func__, flags);
-		return 0;
-	}
-
-	if (seal(di)) {
-		dev_warn(di->dev, "%s: Exit. soft reset successfully! \n", __func__);
-		return 1;
-	}
-	else {
-		dev_warn(di->dev, "%s: Exit. soft reset seal failed!\n", __func__);
-		return 0;
-	}
-}
-
-static int bq27xxx_powersupply_init(struct bq27xxx_device_info *di,
+static int __maybe_unused bq27xxx_powersupply_init(struct bq27xxx_device_info *di,
 				    const char *name)
 {
 	int ret;
@@ -1703,7 +1667,7 @@ static int bq27xxx_powersupply_init(struct bq27xxx_device_info *di,
 	return 0;
 }
 
-static void bq27xxx_powersupply_unregister(struct bq27xxx_device_info *di)
+static void __maybe_unused bq27xxx_powersupply_unregister(struct bq27xxx_device_info *di)
 {
 	/*
 	 * power_supply_unregister call bq27xxx_battery_get_property which
