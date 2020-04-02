@@ -24,7 +24,7 @@
 #include <musbhsdma.h>
 #include <cust_gpio_usage.h>
 #include <linux/switch.h>
-#include <usb20.h>
+#include "usb20.h"
 
 #ifdef CONFIG_USB_MTK_OTG
 
