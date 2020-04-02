@@ -28,21 +28,21 @@
 #define PLL_DIV8_FREQ        (PLL_MIN_FREQ)	/* KHZ */
 
 
-#define DVFS_D0              (1599000)	/* KHz, OD */
-#define DVFS_D1              (1404000)	/* KHz, OD */
-#define DVFS_D2              (1300000)	/* KHz, OD */
-#define DVFS_D3              (1209000)	/* KHz, OD */
-#define DVFS_F1              (1001000)	/* KHz */
-#define DVFS_F2              (806000)	/* KHz */
-#define DVFS_F3              (598000)	/* KHz */
+#define DVFS_D0              (1300000)	/* KHz, OD */
+#define DVFS_D1              (1209000)	/* KHz, OD */
+#define DVFS_D2              (1001000)	/* KHz, OD */
+#define DVFS_D3              (806000)	/* KHz, OD */
+#define DVFS_F1              (598000)	/* KHz */
+#define DVFS_F2              (520000)	/* KHz */
+#define DVFS_F3              (260000)	/* KHz */
 
-#define DVFS_V0              (1250)	/* mV, OD */
-#define DVFS_V1              (1150)	/* mV */
+#define DVFS_V0              (1200)	/* mV, OD */
+#define DVFS_V1              (1100)	/* mV */
 
-#define DVFS_MIN_VCORE       (1150)
-#define DEFAULT_FREQ         (1001000)	/* KHz */
-#define NOR_MAX_FREQ         (1001000)	/* KHz */
-#define AMBIENT_MODE_FREQ      (598000)	/* KHz */
+#define DVFS_MIN_VCORE       (1100)
+#define DEFAULT_FREQ         (598000)	/* KHz */
+#define NOR_MAX_FREQ         (598000)	/* KHz */
+#define AMBIENT_MODE_FREQ      (260000)	/* KHz */
 
 #define CORE_NUM             (2)
 #define VCORE_NUM            (2)
