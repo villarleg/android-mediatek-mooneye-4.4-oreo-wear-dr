@@ -25,7 +25,7 @@
 #include <linux/iio/kfifo_buf.h>
 #include <linux/irq_work.h>
 #include <linux/ioctl.h>
-#include <sensors_io.h>
+#include "sensors_io.h"
 #include <linux/i2c.h>
 
 

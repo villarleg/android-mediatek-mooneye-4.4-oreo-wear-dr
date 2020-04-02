@@ -15,7 +15,7 @@
 #include <mach/mt_typedefs.h>
 #include <mach/mt_gpio.h>
 #include <mach/mt_pm_ldo.h>
-#include <sensors_io.h>
+#include "sensors_io.h"
 #include "CwMcuSensor.h"
 #include <cust_cwmcu.h>
 #include "SensorSupport.h"

@@ -33,7 +33,7 @@
 #include <mach/mt_pm_ldo.h>
 #include <mach/mt_clkmgr.h>
 #include <mach/emi_mpu.h>
-#include <usb20.h>
+#include "usb20.h"
 
 extern struct musb *mtk_musb;
 static DEFINE_SEMAPHORE(power_clock_lock);
